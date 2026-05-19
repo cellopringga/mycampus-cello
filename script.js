@@ -43,9 +43,10 @@ function showToast(message) {
     toastElement.show();
 }
 
-// MANAGEMENT JADWAL KULIAH DARI FILE JSON
+// MANAGEMENT JADWAL KULIAH - OPTIMASI JALUR HOSTING
 function loadSchedule() {
-    $.getJSON('jadwal.json', function(data) {
+    // Menggunakan jalur ./jadwal.json agar terbaca sempurna oleh web server hosting
+    $.getJSON('./jadwal.json', function(data) {
         const urutanHari = ["Senin", "Selasa", "Kamis", "Jumat"];
         let kelompokJadwal = { "Senin": [], "Selasa": [], "Kamis": [], "Jumat": [] };
 
@@ -99,6 +100,10 @@ function loadSchedule() {
             highlightHtml = `<div class="text-center py-2 text-muted small" style="font-size: 0.75rem;">😎 Hari ini (${hariIni}) tidak ada jadwal kuliah.</div>`;
         }
         $('#schedule-highlight').html(highlightHtml);
+    }).fail(function() {
+        // Fallback jika terhambat cache sistem hosting / PWA Service Worker
+        $('#schedule-highlight').html('<div class="text-muted small text-center">Gagal memuat otomatis, silakan refresh halaman.</div>');
+        $('#schedule-list').html('<div class="text-muted small text-center p-3">Gagal memuat berkas data jadwal.json</div>');
     });
 }
 
@@ -133,14 +138,20 @@ function loadTasks() {
     $('#task-list').html(html);
 }
 
-// AMBIL API RANDOM QUOTE ACADEMIC
+// AMBIL API RANDOM QUOTE ACADEMIC - FIX STUCK LOADING DI HOSTING
 async function fetchQuote() {
     try {
-        const response = await fetch('https://api.quotable.io/random');
-        const data = await response.json();
-        $('#quote-area').text(`"${data.content}" - ${data.author}`);
+        // Mengganti API lama quotable.io yang mati/diblokir server hosting ke open-source API yang stabil
+        const response = await fetch('https://openquotes.github.io/api/quotes.json');
+        const quotes = await response.json();
+        
+        const randomIndex = Math.floor(Math.random() * quotes.length);
+        const randomQuote = quotes[randomIndex];
+        
+        $('#quote-area').text(`"${randomQuote.quote}" - ${randomQuote.author}`);
     } catch (e) {
-        $('#quote-area').text("Tetap semangat kuliah di Universitas Ma'soem!");
+        // Jika internet melambat, pasang kata motivasi default kampus secara instan agar tidak loading hantu
+        $('#quote-area').text('"Pendidikan adalah tiket ke masa depan, hari esok dimiliki oleh orang-orang yang mempersiapkannya hari ini." - Masoem University Academic');
     }
 }
 
@@ -153,17 +164,12 @@ function toggleTheme() {
 // =========================================================
 // LOGIKA HARDWARE WEB API: CAMERA, GEOLOCATION, VOICE RECOG
 // =========================================================
-
 function jalankanFitur(nomor) {
-    // Reset visual komponen dynamic box hasil
     $('#box-hasil-fitur').slideDown();
     $('#webcam-preview').addClass('d-none');
     $('#btn-action-fitur').addClass('d-none').removeAttr('onclick');
     matikanKamera();
 
-    // -----------------------------------------------------
-    // FITUR 1: CAMERA API (Akses Kamera Depan/Belakang)
-    // -----------------------------------------------------
     if (nomor === 1) {
         $('#judul-hasil').text("📷 Fitur 1: Camera API");
         $('#konten-hasil').html("Meminta izin akses modul kamera internal...");
@@ -176,8 +182,6 @@ function jalankanFitur(nomor) {
                 video.srcObject = stream;
                 $('#webcam-preview').removeClass('d-none');
                 $('#konten-hasil').html("<span class='text-success fw-bold'>Kamera Aktif!</span> Perangkat keras berfungsi penuh.");
-                
-                // Pasang tombol untuk mematikan stream kamera
                 $('#btn-action-fitur').text("Matikan Kamera").removeClass('d-none').attr('onclick', 'matikanKameraDanTutup()');
                 showToast("Akses Kamera Berhasil!");
             })
@@ -189,10 +193,6 @@ function jalankanFitur(nomor) {
             $('#konten-hasil').text("Browser Anda tidak mendukung Camera API.");
         }
     } 
-    
-    // -----------------------------------------------------
-    // FITUR 2: GEOLOCATION API (Membaca Koordinat Global GPS)
-    // -----------------------------------------------------
     else if (nomor === 2) {
         $('#judul-hasil').text("📍 Fitur 2: Geolocation API");
         $('#konten-hasil').html("Mencari sinyal satelit lokasi Anda...");
@@ -206,7 +206,7 @@ function jalankanFitur(nomor) {
                         <strong>Lokasi Anda Berhasil Dikunci:</strong><br>
                         Latitude: <span class='text-indigo'>${lat}</span><br>
                         Longitude: <span class='text-indigo'>${lon}</span><br>
-                        <a href='https://www.google.com/maps?q=${lat},${lon}' target='_blank' class='btn btn-xs btn-outline-indigo mt-2 py-0.5 px-2' style='font-size:0.7rem; text-decoration:none;'>Buka Peta Google</a>
+                        <a href='https://maps.google.com/?q=${lat},${lon}' target='_blank' class='btn btn-sm btn-outline-indigo mt-2 w-100' style='font-size:0.75rem; text-decoration:none;'>Buka Peta Google</a>
                     `);
                     showToast("Lokasi Berhasil Didapatkan!");
                 },
@@ -220,20 +220,15 @@ function jalankanFitur(nomor) {
             $('#konten-hasil').text("Browser Anda tidak mendukung Geolocation.");
         }
     } 
-    
-    // -----------------------------------------------------
-    // FITUR 3: VOICE RECOGNITION API (Pengenalan Ucapan)
-    // -----------------------------------------------------
     else if (nomor === 3) {
         $('#judul-hasil').text("🎙️ Fitur 3: Voice Recognition API");
         $('#konten-hasil').html("Silakan tekan tombol di bawah, izinkan mic, lalu berbicaralah...");
 
-        // Cek kecocokan prefix Web Speech API di berbagai browser
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         
         if (SpeechRecognition) {
             pengenalSuara = new SpeechRecognition();
-            pengenalSuara.lang = 'id-ID'; // Mengatur deteksi ucapan Bahasa Indonesia
+            pengenalSuara.lang = 'id-ID'; 
             pengenalSuara.interimResults = false;
             pengenalSuara.maxAlternatives = 1;
 
@@ -244,7 +239,6 @@ function jalankanFitur(nomor) {
     }
 }
 
-// Fungsi Pendukung Tambahan Fitur Kamera
 function matikanKamera() {
     if (kameraStream) {
         kameraStream.getTracks().forEach(track => track.stop());
@@ -260,11 +254,10 @@ function matikanKameraDanTutup() {
     showToast("Kamera dimatikan.");
 }
 
-// Fungsi Pendukung Tambahan Fitur Voice Recognition
 function mulaiMendengar() {
     if (pengenalSuara) {
         pengenalSuara.start();
-        $('#konten-hasil').html("<span class='text-danger fw-bold animate-pulse'>🎙️ Sedang mendengarkan...</span> Bicaralah sekarang.");
+        $('#konten-hasil').html("<span class='text-danger fw-bold'>🎙️ Sedang mendengarkan...</span> Bicaralah sekarang.");
         $('#btn-action-fitur').text("Mendengarkan...").attr('disabled', true);
 
         pengenalSuara.onresult = function(event) {
